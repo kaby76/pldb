@@ -2,6 +2,6 @@ importOnly
 replaceNodejs
  // Very hacky but this builds the Scroll files in the features/ folder just in time.
  const path = require("path")
- const {Tables} = require(path.join(path.dirname(path.resolve(particle.root.filePath)), "..", "Computer.js"))
+ const {Tables} = require(path.join(process.cwd(), "Computer.js"))
  Tables.writeAllFeaturePages()
  module.exports = {}

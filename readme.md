@@ -55,12 +55,16 @@ node ./node_modules/scroll-cli/scroll.js build
 # 3. Generate feature pages (requires measures.json from step 2)
 node -e "const {Tables} = require('./Computer.js'); Tables.writeAllFeaturePages()"
 
-# 4. Build all subfolders
+# 4. Build all subfolders (order matters: creators before lists)
 for dir in blog books concepts creators features lists pages; do
   echo "Building $dir..."
   (cd "$dir" && node ../node_modules/scroll-cli/scroll.js build)
 done
 ```
+
+**Build order dependencies:**
+- `creators/` must be built before `lists/` (lists needs `creators.json`)
+- Feature `.scroll` files must be generated (step 3) before building `features/`
 
 **Note**: The `npm run build` command may not work correctly on all platforms due to shell piping issues. Use the manual steps above for reliable builds.
 

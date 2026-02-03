@@ -4,7 +4,9 @@
   "description": "PLDB: a Programming Language Database",
   "main": "./pldb.json",
   "scripts": {
-    "build": "./cli.js buildParsersFile; scroll list | scroll build",
+    "build": "node build.js",
+    "build:serve": "node build.js --serve",
+    "serve": "npx serve .",
     "test": "scroll list | scroll test",
     "format": "scroll list | scroll format",
     "open": "open index.html",

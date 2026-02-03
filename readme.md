@@ -24,13 +24,7 @@ Full documentation for the data formats is available at [pldb.io/csv.html](https
 
 ## 🚀 Local Development
 
-### Prerequisites
-
-- Node.js (v18 or later recommended)
-- npm
-- cloc (optional, for line counting): `npm i -g cloc`
-
-### Initial Setup
+### Quick Start (Build & Serve)
 
 ```bash
 # Clone the repository
@@ -39,78 +33,72 @@ cd pldb
 
 # Install dependencies
 npm install
+
+# Build everything and start local server
+npm run build:serve
 ```
 
-### Building the Site
+Then open http://localhost:3000 in your browser.
 
-The build process has multiple steps that must be run in order:
+### Prerequisites
+
+- Node.js (v18 or later recommended)
+- npm
+- cloc (optional, for line counting): `npm i -g cloc`
+
+### NPM Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run build` | Build the entire site |
+| `npm run build:serve` | Build and start local server |
+| `npm run serve` | Start local server (without rebuilding) |
+| `npm run test` | Run tests |
+| `npm run format` | Format code before committing |
+
+### What the Build Does
+
+The build script (`build.js`) performs these steps in order:
+
+1. **Build parsers** - Compiles the parser definitions
+2. **Patch scroll-cli** - Automatically patches scroll-cli for Windows compatibility (if needed)
+3. **Build root folder** - Generates `pldb.json`, `measures.json`, and root HTML files
+4. **Generate feature pages** - Creates `.scroll` files for each language feature
+5. **Build subfolders** - Builds all content folders in the correct order:
+   - `blog/`, `books/`, `concepts/`, `creators/`, `features/`, `lists/`, `pages/`
+
+**Build order matters:** `creators/` must be built before `lists/` (lists needs `creators.json`)
+
+### Manual Build Steps
+
+If you need to run build steps manually:
 
 ```bash
 # 1. Build the parsers file
 node cli.js buildParsersFile
 
-# 2. Build the root folder (generates pldb.json, measures.json, and root HTML files)
+# 2. Build the root folder
 node ./node_modules/scroll-cli/scroll.js build
 
 # 3. Generate feature pages (requires measures.json from step 2)
 node -e "const {Tables} = require('./Computer.js'); Tables.writeAllFeaturePages()"
 
-# 4. Build all subfolders (order matters: creators before lists)
+# 4. Build all subfolders
 for dir in blog books concepts creators features lists pages; do
-  echo "Building $dir..."
   (cd "$dir" && node ../node_modules/scroll-cli/scroll.js build)
 done
-```
 
-**Build order dependencies:**
-- `creators/` must be built before `lists/` (lists needs `creators.json`)
-- Feature `.scroll` files must be generated (step 3) before building `features/`
-
-**Note**: The `npm run build` command may not work correctly on all platforms due to shell piping issues. Use the manual steps above for reliable builds.
-
-### Running a Local Server
-
-After building, serve the site locally:
-
-```bash
+# 5. Start server
 npx serve .
 ```
 
-Then open http://localhost:3000 in your browser.
+### Troubleshooting
 
-### Windows/MSYS2 Compatibility
+**Windows/MSYS2 users:** The build script automatically patches `scroll-cli` for Windows path compatibility. If you encounter path-related errors, the patch replaces `Utils.posix.dirname/basename` with `require("path").dirname/basename` in `node_modules/scroll-cli/parsers/root.parsers`.
 
-If building on Windows with MSYS2, you need to patch `scroll-cli` for path compatibility. Edit `node_modules/scroll-cli/parsers/root.parsers` and change:
+**Empty tables or missing data:** Ensure all subfolders are built. The `npm run build` command builds everything, but if you're building manually, remember that `creators/` must be built before `lists/`.
 
-```javascript
-// Change these lines:
-get folderPath() {
-  return Utils.posix.dirname(this.filePath) + "/"
-}
-get filename() {
-  return Utils.posix.basename(this.filePath)
-}
-
-// To:
-get folderPath() {
-  return require("path").dirname(this.filePath) + "/"
-}
-get filename() {
-  return require("path").basename(this.filePath)
-}
-```
-
-Also apply the same change to `node_modules/scroll-cli/node_modules/scroll-cli/parsers/root.parsers` if it exists.
-
-### Other Commands
-
-```bash
-# Run tests
-npm run test
-
-# Format code before committing
-npm run format
-```
+**Port already in use:** If port 3000 is busy, use `npx serve . -l 8080` to use a different port.
 
 ## 📁 Repository Structure
 

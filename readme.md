@@ -24,24 +24,87 @@ Full documentation for the data formats is available at [pldb.io/csv.html](https
 
 ## 🚀 Local Development
 
-Get started with local development:
+### Prerequisites
+
+- Node.js (v18 or later recommended)
+- npm
+- cloc (optional, for line counting): `npm i -g cloc`
+
+### Initial Setup
 
 ```bash
 # Clone the repository
 git clone https://github.com/breck7/pldb
 cd pldb
 
-# First-time setup
-npm i -g cloc
-npm install .
+# Install dependencies
+npm install
+```
 
-# (Optional) Run tests
+### Building the Site
+
+The build process has multiple steps that must be run in order:
+
+```bash
+# 1. Build the parsers file
+node cli.js buildParsersFile
+
+# 2. Build the root folder (generates pldb.json, measures.json, and root HTML files)
+node ./node_modules/scroll-cli/scroll.js build
+
+# 3. Generate feature pages (requires measures.json from step 2)
+node -e "const {Tables} = require('./Computer.js'); Tables.writeAllFeaturePages()"
+
+# 4. Build all subfolders
+for dir in blog books concepts creators features lists pages; do
+  echo "Building $dir..."
+  (cd "$dir" && node ../node_modules/scroll-cli/scroll.js build)
+done
+```
+
+**Note**: The `npm run build` command may not work correctly on all platforms due to shell piping issues. Use the manual steps above for reliable builds.
+
+### Running a Local Server
+
+After building, serve the site locally:
+
+```bash
+npx serve .
+```
+
+Then open http://localhost:3000 in your browser.
+
+### Windows/MSYS2 Compatibility
+
+If building on Windows with MSYS2, you need to patch `scroll-cli` for path compatibility. Edit `node_modules/scroll-cli/parsers/root.parsers` and change:
+
+```javascript
+// Change these lines:
+get folderPath() {
+  return Utils.posix.dirname(this.filePath) + "/"
+}
+get filename() {
+  return Utils.posix.basename(this.filePath)
+}
+
+// To:
+get folderPath() {
+  return require("path").dirname(this.filePath) + "/"
+}
+get filename() {
+  return require("path").basename(this.filePath)
+}
+```
+
+Also apply the same change to `node_modules/scroll-cli/node_modules/scroll-cli/parsers/root.parsers` if it exists.
+
+### Other Commands
+
+```bash
+# Run tests
 npm run test
 
-# Build the site
-npm run build
-
-# Before committing changes
+# Format code before committing
 npm run format
 ```
 

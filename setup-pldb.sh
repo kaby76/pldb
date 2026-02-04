@@ -1,0 +1,173 @@
+#!/bin/bash
+# Setup and run PLDB server on Ubuntu droplet
+# Usage: ./setup-pldb.sh <ip-address> <repo-url>
+#
+# This script:
+# 1. Installs Node.js 20.x if not present
+# 2. Creates swap space (needed for low-memory droplets)
+# 3. Clones and builds the PLDB repository
+# 4. Creates a systemd service for automatic startup on reboot
+# 5. Starts the server and verifies it is accessible
+
+set -e  # Exit on error
+
+# Check for required arguments
+if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Usage: $0 <ip-address> <repo-url>"
+    echo "Example: $0 159.65.99.188 https://github.com/kaby76/pldb.git"
+    exit 1
+fi
+
+IP_ADDRESS="$1"
+REPO_URL="$2"
+REMOTE_HOST="root@${IP_ADDRESS}"
+INSTALL_DIR="/root/pldb"
+PORT=80
+
+echo "=== PLDB Server Setup Script ==="
+echo "Target: $REMOTE_HOST"
+echo "Repository: $REPO_URL"
+echo ""
+
+# Run commands on the remote server
+ssh -o StrictHostKeyChecking=no "$REMOTE_HOST" bash -s -- "$REPO_URL" << 'ENDSSH'
+set -e
+
+REPO_URL="$1"
+export DEBIAN_FRONTEND=noninteractive
+
+echo ">>> Updating package lists..."
+apt-get update -qq
+
+echo ">>> Installing prerequisites..."
+apt-get install -y -qq curl
+
+# Setup swap if not already present (needed for low-memory droplets)
+echo ">>> Checking swap space..."
+if [ $(swapon --show | wc -l) -eq 0 ]; then
+    echo "    Creating 2GB swap file..."
+    fallocate -l 2G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
+    echo "    Swap enabled"
+else
+    echo "    Swap already configured"
+fi
+free -h | grep -E "^(Mem|Swap)"
+
+# Install Node.js if needed
+echo ">>> Checking Node.js..."
+if ! command -v node &> /dev/null; then
+    echo "    Installing Node.js 20.x..."
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y -qq nodejs
+fi
+
+echo ">>> Node.js version: $(node --version)"
+echo ">>> npm version: $(npm --version)"
+
+# Clone repository
+echo ">>> Setting up PLDB repository..."
+INSTALL_DIR="/root/pldb"
+if [ -d "$INSTALL_DIR" ]; then
+    echo "    Removing existing installation..."
+    rm -rf "$INSTALL_DIR"
+fi
+git clone "$REPO_URL" "$INSTALL_DIR"
+cd "$INSTALL_DIR"
+
+echo ">>> Installing npm dependencies..."
+npm install
+
+# Build with increased Node.js memory (required for large site)
+echo ">>> Building the site (this takes a while on low-memory systems)..."
+export NODE_OPTIONS='--max-old-space-size=1536'
+npm run build
+
+# Create systemd service for automatic startup on reboot
+echo ">>> Creating systemd service..."
+cat > /etc/systemd/system/pldb.service << 'SERVICEEOF'
+[Unit]
+Description=PLDB Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/pldb
+ExecStart=/usr/bin/npx serve . -l 80
+Restart=on-failure
+RestartSec=10
+StandardOutput=append:/root/pldb-server.log
+StandardError=append:/root/pldb-server.log
+
+[Install]
+WantedBy=multi-user.target
+SERVICEEOF
+
+# Enable and start the service
+echo ">>> Enabling and starting PLDB service..."
+systemctl daemon-reload
+systemctl enable pldb
+systemctl restart pldb
+
+# Wait for server to start
+echo ">>> Waiting for server to start..."
+MAX_RETRIES=12
+RETRY_COUNT=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    sleep 5
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:80 | grep -q "200"; then
+        echo "    Server responding on localhost:80"
+        break
+    fi
+    echo "    Waiting... (attempt $((RETRY_COUNT + 1))/$MAX_RETRIES)"
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+done
+
+if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+    echo "ERROR: Server did not respond after $MAX_RETRIES attempts"
+    echo ">>> Service status:"
+    systemctl status pldb --no-pager
+    echo ">>> Server log:"
+    tail -50 /root/pldb-server.log
+    exit 1
+fi
+
+# Open firewall port if ufw is active
+if ufw status | grep -q "Status: active"; then
+    echo ">>> Opening firewall port 80..."
+    ufw allow 80/tcp
+fi
+
+echo ""
+echo "=== Server Status ==="
+systemctl status pldb --no-pager | head -10
+echo ""
+echo "Log file: /root/pldb-server.log"
+echo ""
+echo "Service commands:"
+echo "  View status: systemctl status pldb"
+echo "  View logs:   journalctl -u pldb -f"
+echo "  Restart:     systemctl restart pldb"
+echo "  Stop:        systemctl stop pldb"
+
+ENDSSH
+
+echo ""
+echo "=== Setup Complete ==="
+echo ""
+echo ">>> Testing external access..."
+sleep 2
+HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://${IP_ADDRESS}")
+if [ "$HTTP_STATUS" = "200" ]; then
+    echo "SUCCESS: Server is accessible at http://${IP_ADDRESS}"
+    echo ""
+    echo ">>> Fetching page title..."
+    curl -s "http://${IP_ADDRESS}" | grep -oP '(?<=<title>).*(?=</title>)' | head -1
+else
+    echo "WARNING: Server returned HTTP $HTTP_STATUS"
+    echo "The server may still be starting up. Try: curl http://${IP_ADDRESS}"
+fi

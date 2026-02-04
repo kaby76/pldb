@@ -37,6 +37,32 @@ code
  # After you make changes and before you commit make sure to run:
  npm run format
 
+## To deploy to a server
+The `setup-pldb.sh` script automates deployment to a fresh Ubuntu server (tested on Ubuntu 24.04). It installs Node.js, creates swap space for low-memory systems, builds the site, and configures a systemd service for automatic startup on reboot.
+
+Requirements:
+- A fresh Ubuntu server with SSH access as root
+- SSH key authentication configured
+
+code
+ ./setup-pldb.sh <ip-address> <repo-url>
+ # Example:
+ ./setup-pldb.sh 159.65.99.188 https://github.com/kaby76/pldb.git
+
+The script will:
+- Install Node.js 20.x
+- Create 2GB swap space (needed for low-memory VPS instances)
+- Clone and build the repository
+- Configure a systemd service (`pldb`) to run on port 80
+- Start the server automatically on boot
+
+After deployment, manage the server with:
+code
+ systemctl status pldb    # Check status
+ systemctl restart pldb   # Restart server
+ systemctl stop pldb      # Stop server
+ journalctl -u pldb -f    # View logs
+
 ## To explore this repo
 The most important folder is `concepts`, which contains the ScrollSet (a file for each concept). The file `code/measures.parsers` contains the Parsers (schema) for the ScrollSet.
 You can see the `cloc` language stats on this repo at https://pldb.io/pages/about.html.

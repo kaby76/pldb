@@ -244,19 +244,19 @@ function patchScrollCliCopyButton() {
 
   const old = (
     'if (!navigator.clipboard) return\\n' +
-    '    const button = document.createElement(\\"span\\")\\n' +
-    '    button.classList.add(\\"scrollCopyButton\\")\\n' +
+    '    const button = document.createElement("span")\\n' +
+    '    button.classList.add("scrollCopyButton")\\n' +
     '    block.appendChild(button)\\n' +
-    '    button.addEventListener(\\"click\\", async () => {\\n' +
+    '    button.addEventListener("click", async () => {\\n' +
     '      await navigator.clipboard.writeText(block.innerText)\\n' +
-    '      button.classList.add(\\"scrollCopiedButton\\")\\n'
+    '      button.classList.add("scrollCopiedButton")\\n'
   )
 
   const patched = (
-    'const button = document.createElement(\\"span\\")\\n' +
-    '    button.classList.add(\\"scrollCopyButton\\")\\n' +
+    'const button = document.createElement("span")\\n' +
+    '    button.classList.add("scrollCopyButton")\\n' +
     '    block.appendChild(button)\\n' +
-    '    button.addEventListener(\\"click\\", async () => {\\n' +
+    '    button.addEventListener("click", async () => {\\n' +
     '      if (navigator.clipboard) {\\n' +
     '        await navigator.clipboard.writeText(block.innerText)\\n' +
     '      } else {\\n' +
@@ -265,10 +265,10 @@ function patchScrollCliCopyButton() {
     '        range.selectNodeContents(block)\\n' +
     '        sel.removeAllRanges()\\n' +
     '        sel.addRange(range)\\n' +
-    '        document.execCommand(\\"copy\\")\\n' +
+    '        document.execCommand("copy")\\n' +
     '        sel.removeAllRanges()\\n' +
     '      }\\n' +
-    '      button.classList.add(\\"scrollCopiedButton\\")\\n'
+    '      button.classList.add("scrollCopiedButton")\\n'
   )
 
   for (const filePath of targets) {
